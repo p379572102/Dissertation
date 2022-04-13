@@ -48,7 +48,7 @@ polys <- st_transform(polys, 27700)
 
 ### Filter the items that highway type is in line with one of the 9 types,
 ###since only intrested in roads not paths
-polys <- polys[polys$highway %in% c("living_street","primary","primary_link",
+polys <- polys[polys$highway %in% c("motorway","living_street","primary","primary_link",
                                     "residential","secondary", "secondary_link",
                                     "tertiary",  "tertiary_link", "unclassified"),]
 
@@ -91,7 +91,7 @@ rm(points.sub, col.names)
 
 points <- points[rowsum == 0,] #Remove points with any tags
 
-### Check highway tag to remove things like traffic lights—�????How can I know which to delete
+### Check highway tag to remove things like traffic lights—??????How can I know which to delete
 points <- points[is.na(points$highway) | points$highway %in%
                    c("mini_roundabout","motorway_junction"), ] # | means or
 points <- points[,c("osm_id","geometry")] # Delete unnecessary column timely
