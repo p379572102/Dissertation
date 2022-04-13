@@ -48,7 +48,7 @@ polys <- st_transform(polys, 27700)
 
 ### Filter the items that highway type is in line with one of the 9 types,
 ###since only intrested in roads not paths
-polys <- polys[polys$highway %in% c("motorway","living_street","primary","primary_link",
+polys <- polys[polys$highway %in% c("motorway","motorway_link","living_street","primary","primary_link",
                                     "residential","secondary", "secondary_link",
                                     "tertiary",  "tertiary_link", "unclassified"),]
 
