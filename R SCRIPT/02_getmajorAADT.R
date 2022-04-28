@@ -1,4 +1,4 @@
-# 01 Get AADT count
+# 02 Get majot road AADT count
 # Aim this script get the AADT data of the selected network and assigns
 # AADT values to the corresponding roads and junctions
 
@@ -20,14 +20,23 @@ tmap_mode("view")
 #### GET AADT COUNTS                                             ####
 # ################################################################# #
 
-### Bounds and traffic
-bounds <- readRDS("E:/R_language/AADT/data/bounds.Rds")
-traffic <- readRDS("E:/R_language/AADT/data/traffic.Rds")
-traffic <- traffic[,c("road","aadt","ncycles")] #delete unnecessary columns
-trafficsub <- traffic[bounds,] #filter the items within the bounds
+### Subset traffic data of 2018
+traffic<-read.csv(file="dft_aadf_local_authority_id_97.csv",header=TRUE)
+traffic_2018<-traffic[traffic$year==2018,] #filter the count obtained in 2018
+
+traffic_poly<-traffic_2018[,c("longitude","latitude")]
+traffic_poly<-convHull(traffic_poly)# find the polygon contain all the AADT,but it is complex
+
+
+traffic_2018<-st_as_sf(traffic_2018,coords = c("longitude","latitude"),crs=27700) #set the crs
+traffic_2018<-traffic_2018[,c("road_name","road_type","all_motor_vehicles")] #delete unnecessary columns
+
+saveRDS(traffic,"02_traffic_cambridgeshire.RDS")
+saveRDS(traffic,"02_traffic_cambridgeshire_2018.RDS")
+
 
 ### Subset major and minor roads
-lines <- lines[bounds,]
+
 lines_major <- lines[lines$highway %in% c("motorway","motorway_link","primary",
                                     "primary_link","trunk","trunk_link"),]
 lines_minor <- lines[!lines$highway %in% c("motorway","motorway_link","primary",
@@ -67,7 +76,7 @@ lines <- rbind(lines_major, lines_minor)
 ### Custom a Function
 get.aadt.class <- function(e){
   #message(paste0("doing ",e))
-  traffic.sub <- traffic.class[traffic.class$road == roadnames[e],]
+  traffic.sub <- traffic_2018.class[traffic_2018.class$road_name == roadnames[e],]
   traffic.sub <- traffic.sub[!duplicated(traffic.sub$geometry),]
   lines.sub <- lines.nona[lines.nona$ref == roadnames[e],]
 
@@ -105,12 +114,12 @@ get.aadt.class <- function(e){
 
 
 ### Separate Classified and Unclassified Roads
-traffic.class <- traffic[!substr(traffic$road,1,1) %in% c("U","C"),]
-traffic.unclass <- traffic[substr(traffic$road,1,1) %in% c("U","C"),]
+traffic_2018.class <- traffic_2018[!substr(traffic_2018$road_name,1,1) %in% c("U","C"),]
+traffic_2018.unclass <- traffic_2018[substr(traffic_2018$road_name,1,1) %in% c("U","C"),]
 
 
 ### Start with the classified
-roadnames <- unique(traffic.class$road)
+roadnames <- unique(traffic_2018.class$road_name)
 roadnames <- roadnames[roadnames %in% lines$ref]
 lines.nona <- lines[!is.na(lines$ref),] #Create a working dataset without nas
 lines.nona <- lines.nona[,c("osm_id","ref")] #Dump unneeded data
