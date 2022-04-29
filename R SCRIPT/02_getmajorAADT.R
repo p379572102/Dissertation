@@ -37,6 +37,7 @@ saveRDS(traffic,"02_traffic_cambridgeshire_2018.RDS")
 
 ### Subset major and minor roads
 
+lines<-readRDS("E:/R_language/Dissertation/Data/01_network.RDS")
 lines_major <- lines[lines$highway %in% c("motorway","motorway_link","primary",
                                     "primary_link","trunk","trunk_link"),]
 lines_minor <- lines[!lines$highway %in% c("motorway","motorway_link","primary",
