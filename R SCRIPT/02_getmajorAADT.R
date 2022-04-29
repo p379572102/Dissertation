@@ -24,8 +24,8 @@ tmap_mode("view")
 traffic<-read.csv(file="dft_aadf_local_authority_id_97.csv",header=TRUE)
 traffic_2018<-traffic[traffic$year==2018,] #filter the count obtained in 2018
 
-traffic_poly<-traffic_2018[,c("longitude","latitude")]
-traffic_poly<-convHull(traffic_poly)# find the polygon contain all the AADT,but it is complex
+traffic_poly<- st_convex_hull(st_union(traffic_2018)) # Make Polygon Around Traffic Data
+traffic_poly <- st_buffer(traffic_poly, 1000) # Buffer Polygon by 1km
 
 
 traffic_2018<-st_as_sf(traffic_2018,coords = c("longitude","latitude"),crs=27700) #set the crs
@@ -38,6 +38,7 @@ saveRDS(traffic,"02_traffic_cambridgeshire_2018.RDS")
 ### Subset major and minor roads
 
 lines<-readRDS("E:/R_language/Dissertation/Data/01_network.RDS")
+lines <- lines[traffic_poly,] # Subset lines to area with traffic data
 lines_major <- lines[lines$highway %in% c("motorway","motorway_link","primary",
                                     "primary_link","trunk","trunk_link"),]
 lines_minor <- lines[!lines$highway %in% c("motorway","motorway_link","primary",
