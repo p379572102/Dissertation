@@ -28,16 +28,18 @@ traffic_poly<-traffic_2018[,c("longitude","latitude")]
 traffic_poly<-convHull(traffic_poly)# find the polygon contain all the AADT,but it is complex
 
 
-traffic_2018<-st_as_sf(traffic_2018,coords = c("longitude","latitude"),crs=27700) #set the crs
+traffic_2018<-st_as_sf(traffic_2018,coords = c("longitude","latitude"),crs=4326) #set the crs
 traffic_2018<-traffic_2018[,c("road_name","road_type","all_motor_vehicles")] #delete unnecessary columns
+names(traffic_2018)<-c("road_name","road_type","aadt","geometry")
+traffic_2018<-st_transform(traffic_2018,27700)
 
 saveRDS(traffic,"02_traffic_cambridgeshire.RDS")
-saveRDS(traffic,"02_traffic_cambridgeshire_2018.RDS")
+saveRDS(traffic_2018,"02_traffic_cambridgeshire_2018.RDS")
 
 
 ### Subset major and minor roads
 
-lines<-readRDS("E:/R_language/Dissertation/Data/01_network.RDS")
+lines<-readRDS("Data/01_network.RDS")
 lines_major <- lines[lines$highway %in% c("motorway","motorway_link","primary",
                                     "primary_link","trunk","trunk_link"),]
 lines_minor <- lines[!lines$highway %in% c("motorway","motorway_link","primary",
@@ -115,6 +117,7 @@ get.aadt.class <- function(e){
 
 
 ### Separate Classified and Unclassified Roads
+
 traffic_2018.class <- traffic_2018[!substr(traffic_2018$road_name,1,1) %in% c("U","C"),]
 traffic_2018.unclass <- traffic_2018[substr(traffic_2018$road_name,1,1) %in% c("U","C"),]
 
@@ -141,7 +144,7 @@ rm(res.class)
 
 qtm(lines[lines$highway %in% c("motorway","motorway_link","primary","primary_link",
                            "trunk","trunk_link"),]
-    , lines.lwd = 3, lines.col = "aadt")
+    , lines.lwd = 3, lines.col = "aadt")+qtm(traffic_2018)
 
 
 ### Save these for later ----------------------------------------------------
