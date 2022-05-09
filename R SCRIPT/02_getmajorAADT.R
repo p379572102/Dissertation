@@ -23,7 +23,7 @@ tmap_mode("view")
 #### Load data                                                   ####
 # ################################################################# #
 
-bound<-st_read("Data/00_bound_buf.gpkg")
+# bound<-st_read("Data/00_bound_buf.gpkg")
 traffic_2018<-readRDS("Data/00_traffic_camb_2018.RDS")
 lines<-st_read("Data/01_network.gpkg")
 
@@ -32,19 +32,23 @@ lines<-st_read("Data/01_network.gpkg")
 #### GET AADT COUNTS                                             ####
 # ################################################################# #
 
-traffic_poly<- st_convex_hull(st_union(traffic_2018)) # Make Polygon Around Traffic Data
-traffic_poly <- st_buffer(traffic_poly, 1000) # Buffer Polygon by 1km
+bound_buf<- st_convex_hull(st_union(traffic_2018)) # Make Polygon Around Traffic Data
+bound_buf <- st_buffer(bound_buf, 1000) # Buffer Polygon by 1km
 
+st_write(bound_buf, "Data/00_bound_buf.gpkg")
 
 ### Subset major and minor roads
 lines<-readRDS("Data/01_network.RDS")
-lines <- lines[traffic_poly,] # Subset lines to area with traffic data
+lines <- lines[bound_buf,] # Subset lines to area with traffic data
 
 
 lines_major <- lines[lines$highway %in% c("motorway","motorway_link","primary",
                                     "primary_link","trunk","trunk_link"),]
 lines_minor <- lines[!lines$highway %in% c("motorway","motorway_link","primary",
                                      "primary_link","trunk","trunk_link"),]
+
+st_write(lines_major, "Data/lines_major.gpkg")
+st_write(lines_minor, "Data/lines_minor.gpkg")
 
 ### Get the centroid of each major lines
 lines_major_cents <- st_coordinates(st_centroid(lines_major))

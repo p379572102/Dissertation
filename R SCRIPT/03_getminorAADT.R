@@ -30,10 +30,8 @@ lines <- st_read("Data/02_lines_majoraadt.gpkg")
 
 ### Find Junctions between minor and major roads ----------------------------
 
-lines_major <- lines[lines$highway %in% c("motorway","motowray_link","primary",
-                                    "primary_link","trunk","trunk_link"),]
-lines_minor <- lines[!lines$highway %in% c("motorway","motowray_link","primary",
-                                     "primary_link","trunk","trunk_link"),]
+lines_major <- st_read("Data/lines_major.gpkg")
+lines_minor <- st_read("Data/lines_minor.gpkg")
 
 minor_int <- st_intersects(points, lines_minor)
 major_int <- st_intersects(points, lines_major)

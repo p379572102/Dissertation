@@ -32,11 +32,14 @@ lines <- osm_raw$osm_lines
 points <- osm_raw$osm_points
 polys <- osm_raw$osm_polygons # needed for roundabouts
 
-
 ### Change CRS to British national grid 27700
 lines <- st_transform(lines, 27700)
 points <- st_transform(points, 27700)
 polys <- st_transform(polys, 27700)
+
+lines <- lines[bound,]
+points <- points[bound,]
+polys <- polys[bound,]
 
 
 ### Filter the items that highway type is in line with one of the 13 types,
@@ -59,11 +62,11 @@ lines <- lines[,col_names]
 lines <- rbind(lines, polys)
 
 ### Return the osmdata within the boundary
-lines <-st_intersection(lines,bound)
+#lines <-st_intersection(lines,bound)
 
 qtm(lines)
 
-st_write(lines,"Data/01_network.gpkg")
+st_write(lines,"Data/01_network.gpkg", delete_dsn = TRUE)
 
 rm(polys,col_names,road_types)
 

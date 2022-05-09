@@ -19,12 +19,12 @@ library(deldir)
 tmap_mode("view")
 
 ###Loading the boundary of Cambridgeshire and simplify it
-bound<- read_sf(dsn = "Data/BoundaryData/england_ct_2011.shp")
-bound_simp<-st_simplify(bound, dTolerance = 5000)
-bound_buf<-st_buffer(bound_simp,3000)
-qtm(bound)+qtm(bound_buf)
-
-st_write(bound_buf, "Data/00_bound_buf.gpkg")
+# bound<- read_sf(dsn = "Data/BoundaryData/england_ct_2011.shp")
+# bound_simp<-st_simplify(bound, dTolerance = 5000)
+# bound_buf<-st_buffer(bound_simp,3000)
+# qtm(bound)+qtm(bound_buf)
+# 
+# st_write(bound_buf, "Data/00_bound_buf.gpkg")
 
 
 # ################################################################# #
@@ -56,6 +56,12 @@ names(traffic_2018)<-c("road_name","road_type","aadt","geometry")
 traffic_2018<-st_transform(traffic_2018,27700)
 
 saveRDS(traffic_2018,"Data/00_traffic_camb_2018.RDS")
+
+
+# Make Bounds
+bound_buf<- st_convex_hull(st_union(traffic_2018)) # Make Polygon Around Traffic Data
+bound_buf <- st_buffer(bound_buf, 1000) # Buffer Polygon by 1km
+st_write(bound_buf, "Data/00_bound_buf.gpkg", delete_dsn = TRUE)
 
 
 # ################################################################# #
