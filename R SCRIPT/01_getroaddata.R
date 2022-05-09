@@ -37,10 +37,11 @@ lines <- st_transform(lines, 27700)
 points <- st_transform(points, 27700)
 polys <- st_transform(polys, 27700)
 
+qtm(lines[sample(1:nrow(lines), 1000),])
+
 lines <- lines[bound,]
 points <- points[bound,]
 polys <- polys[bound,]
-
 
 ### Filter the items that highway type is in line with one of the 13 types,
 ### since only interested in roads not paths
@@ -64,7 +65,7 @@ lines <- rbind(lines, polys)
 ### Return the osmdata within the boundary
 #lines <-st_intersection(lines,bound)
 
-qtm(lines)
+qtm(lines[sample(1:nrow(lines), 10000),])
 
 st_write(lines,"Data/01_network.gpkg", delete_dsn = TRUE)
 
@@ -115,6 +116,6 @@ points <- points[len >= 2,] # Only keep points that intersect at least 2 lines
 points <- points[!duplicated(points$geometry),]
 rm(len, rowsum, inter)
 
-qtm(points)
+qtm(points[sample(1:nrow(points), 1000),])
 
-st_write(points, "Data/01_junctions.gpkg")
+st_write(points, "Data/01_junctions.gpkg", delete_dsn = TRUE)

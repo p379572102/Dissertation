@@ -18,35 +18,9 @@ tmap_mode("view")
 
 ### Load Data ---------------------------------------------------------------
 
-bound<-st_read("Data/00_bound_buf.gpkg")
-traffic_2018<-readRDS("Data/00_traffic_camb_2018.RDS")
-points <- st_read("Data/01_junctions.gpkg")
-lines <- st_read("Data/02_lines_majoraadt.gpkg")
-
-# ################################################################# #
-####    Assign AADT to major-to-minor junction                   ####
-# ################################################################# #
-
-
-### Find Junctions between minor and major roads ----------------------------
-
-lines_major <- st_read("Data/lines_major.gpkg")
-lines_minor <- st_read("Data/lines_minor.gpkg")
-
-minor_int <- st_intersects(points, lines_minor)
-major_int <- st_intersects(points, lines_major)
-
-minor_int = lengths(minor_int)
-major_int = lengths(major_int)
-both_int = ifelse(minor_int > 0 & major_int > 0, TRUE, FALSE)
-
-junc_majmi = points[both_int,]
-
-### Match Major Road AADT onto junctions
-junc_majmi <- st_join(junc_majmi, lines_major[,"aadt"])
-junc_majmi <- junc_majmi[!duplicated(junc_majmi$geom),]
-qtm(junc_majmi, dots.col = "aadt")
-
+lines_minor <- st_read("Data/02_lines_minor.gpkg")
+lines <- st_read("Data/02_lines.gpkg")
+junc_majmi <- st_read("Data/02_junctions.gpkg")
 
 # ################################################################# #
 ####                Assign AADT to minor road                    ####
@@ -79,6 +53,8 @@ dists <- dodgr_times(graph,
                      to = minor_cent$from_id,
                      shortest = FALSE)
 
+saveRDS(dists,"Data/03_dists_matrix.Rds")
+
 nearst_junction <- list()
 for(i in 1:ncol(dists)){
   sub <- dists[,i]
@@ -95,13 +71,13 @@ for(i in 1:ncol(dists)){
     }
     nearst_junction[[i]] <- mindist
   }
-
+  
 }
 nearst_junction <- unlist(nearst_junction)
 
 lines_minor$nearst_junction <- nearst_junction
 lines_minor$major_aadt <- junc_majmi$aadt[match(lines_minor$nearst_junction,
-                                              junc_majmi$from_id)]
+                                                junc_majmi$from_id)]
 # plot each road colored by the AADT on the nearest (in time) major road
 
 lines_minor <- st_transform(lines_minor, 27700)
@@ -111,3 +87,6 @@ qtm(lines_minor, lines.col = "major_aadt", lines.lwd = 1)
 st_write(lines_major, "Data/03_lines_major.gpkg")
 st_write(lines_minor, "Data/03_lines_minor.gpkg")
 st_write(minor_cent, "Data/03_minor_cent.gpkg")
+
+#st_write(lines, "Data/02_lines_majoraadt.gpkg", delete_dsn = TRUE)
+

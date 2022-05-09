@@ -23,32 +23,23 @@ tmap_mode("view")
 #### Load data                                                   ####
 # ################################################################# #
 
-# bound<-st_read("Data/00_bound_buf.gpkg")
+bound<-st_read("Data/00_bound_buf.gpkg")
 traffic_2018<-readRDS("Data/00_traffic_camb_2018.RDS")
 lines<-st_read("Data/01_network.gpkg")
+points <- st_read("Data/01_junctions.gpkg")
 
 
 # ################################################################# #
 #### GET AADT COUNTS                                             ####
 # ################################################################# #
 
-bound_buf<- st_convex_hull(st_union(traffic_2018)) # Make Polygon Around Traffic Data
-bound_buf <- st_buffer(bound_buf, 1000) # Buffer Polygon by 1km
-
-st_write(bound_buf, "Data/00_bound_buf.gpkg")
-
-### Subset major and minor roads
-lines<-readRDS("Data/01_network.RDS")
-lines <- lines[bound_buf,] # Subset lines to area with traffic data
-
-
 lines_major <- lines[lines$highway %in% c("motorway","motorway_link","primary",
                                     "primary_link","trunk","trunk_link"),]
 lines_minor <- lines[!lines$highway %in% c("motorway","motorway_link","primary",
                                      "primary_link","trunk","trunk_link"),]
 
-st_write(lines_major, "Data/lines_major.gpkg")
-st_write(lines_minor, "Data/lines_minor.gpkg")
+#st_write(lines_major, "Data/lines_major.gpkg")
+#st_write(lines_minor, "Data/lines_minor.gpkg")
 
 ### Get the centroid of each major lines
 lines_major_cents <- st_coordinates(st_centroid(lines_major))
@@ -78,8 +69,6 @@ qtm(bound)+qtm(line_major_sub, lines.col = "ref",
 
 lines <- rbind(lines_major, lines_minor)
 rm(nn,lines_major_cents)
-
-
 
 # ############################################ #
 ####   Assign Traffic Counts to the roads   ####
@@ -155,6 +144,21 @@ qtm(bound) + qtm(lines[lines$highway %in% c("motorway","motorway_link","primary"
                            "trunk","trunk_link"),]
     , lines.lwd = 3, lines.col = "aadt") + qtm(traffic_2018, dots.col="aadt")
 
+### Find Junctions between minor and major roads ----------------------------
+minor_int <- st_intersects(points, lines_minor)
+major_int <- st_intersects(points, lines_major)
 
+minor_int = lengths(minor_int)
+major_int = lengths(major_int)
+both_int = ifelse(minor_int > 0 & major_int > 0, TRUE, FALSE)
 
-st_write(lines, "Data/02_lines_majoraadt.gpkg")
+junc_majmi = points[both_int,]
+
+### Match Major Road AADT onto junctions
+junc_majmi <- st_join(junc_majmi, lines[,"aadt"])
+junc_majmi <- junc_majmi[!duplicated(junc_majmi$geom),]
+qtm(junc_majmi, dots.col = "aadt")
+
+st_write(lines_minor, "Data/02_lines_minor.gpkg")
+st_write(lines, "Data/02_lines.gpkg")
+st_write(junc_majmi, "Data/02_junctions.gpkg")
