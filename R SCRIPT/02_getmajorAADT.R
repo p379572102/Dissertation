@@ -6,6 +6,9 @@
 #### LOAD LIBRARIES AND DEFINE CORE SETTINGS                     ####
 # ################################################################# #
 
+### Clear memory
+rm(list = ls())
+
 ### Load libraries
 library(sf)
 library(tmap)
@@ -17,30 +20,26 @@ library(deldir)
 tmap_mode("view")
 
 # ################################################################# #
-#### GET AADT COUNTS                                             ####
+#### Load data                                                   ####
 # ################################################################# #
 
-### Subset traffic data of 2018
-traffic<-read.csv(file="dft_aadf_local_authority_id_97.csv",header=TRUE)
-traffic_2018<-traffic[traffic$year==2018,] #filter the count obtained in 2018
+bound<-st_read("Data/00_bound_buf.gpkg")
+traffic_2018<-readRDS("Data/00_traffic_camb_2018.RDS")
+lines<-st_read("Data/01_network.gpkg")
+
+
+# ################################################################# #
+#### GET AADT COUNTS                                             ####
+# ################################################################# #
 
 traffic_poly<- st_convex_hull(st_union(traffic_2018)) # Make Polygon Around Traffic Data
 traffic_poly <- st_buffer(traffic_poly, 1000) # Buffer Polygon by 1km
 
 
-traffic_2018<-st_as_sf(traffic_2018,coords = c("longitude","latitude"),crs=4326) #set the crs
-traffic_2018<-traffic_2018[,c("road_name","road_type","all_motor_vehicles")] #delete unnecessary columns
-names(traffic_2018)<-c("road_name","road_type","aadt","geometry")
-traffic_2018<-st_transform(traffic_2018,27700)
-
-saveRDS(traffic,"02_traffic_cambridgeshire.RDS")
-saveRDS(traffic_2018,"02_traffic_cambridgeshire_2018.RDS")
-
-
 ### Subset major and minor roads
-
 lines<-readRDS("Data/01_network.RDS")
 lines <- lines[traffic_poly,] # Subset lines to area with traffic data
+
 
 lines_major <- lines[lines$highway %in% c("motorway","motorway_link","primary",
                                     "primary_link","trunk","trunk_link"),]
@@ -69,10 +68,14 @@ for(k in 1:2){
   }
 }
 
-qtm(lines_major, lines.col = "ref", lines.lwd = 3)
-#rm(nn,lines_major_cents)
+line_major_sub<-st_intersection(lines_major,bound)
+qtm(bound)+qtm(line_major_sub, lines.col = "ref", 
+               lines.lwd = 2) + qtm(traffic_2018,dots.col = "aadt")
 
 lines <- rbind(lines_major, lines_minor)
+rm(nn,lines_major_cents)
+
+
 
 # ############################################ #
 ####   Assign Traffic Counts to the roads   ####
@@ -144,13 +147,10 @@ res.class$aadt <- as.numeric(res.class$aadt)
 lines <- left_join(lines,res.class, by = c("osm_id" = "osm_id"))
 rm(res.class)
 
-qtm(lines[lines$highway %in% c("motorway","motorway_link","primary","primary_link",
+qtm(bound) + qtm(lines[lines$highway %in% c("motorway","motorway_link","primary","primary_link",
                            "trunk","trunk_link"),]
-    , lines.lwd = 3, lines.col = "aadt")+qtm(traffic_2018)
+    , lines.lwd = 3, lines.col = "aadt") + qtm(traffic_2018, dots.col="aadt")
 
 
-### Save these for later ----------------------------------------------------
 
-st_write(lines, "E:/R_language/AADT/data/iow_lines_all.gpkg", delete_dsn = TRUE)
-st_write(points, "E:/R_language/AADT/data/iow_points.gpkg", delete_dsn = TRUE)
-st_write(traffic, "E:/R_language/AADT/data/iow_traffic_points.gpkg", delete_dsn = TRUE)
+st_write(lines, "Data/02_lines_majoraadt.gpkg")
