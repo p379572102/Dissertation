@@ -1,15 +1,32 @@
 # Aim: To calculate road centrality
 # Rework of original file dropping the splitting an buffering stage
 
+### Clear memory
+rm(list = ls())
 
-### Split the minor roads into zones divided by the major road network --------
+### Load Packages -----------------------------------------------------------
+
+library(ggplot2)
+library(sf)
+library(dodgr)
+library(tmap)
+library(dplyr)
+library(concaveman)
+tmap_mode("view")
+
+### Load Data ---------------------------------------------------------------
+lines<-st_read("Data/02_iow_lines_all.gpkg")
+lines_major<-st_read("Data/03_lines_major.gpkg")
+lines_minor<-st_read("Data/03_lines_minor.gpkg")
+minor_cent<-st_read("Data/03_minor_cent.gpkg")
+### Split the minor roads into zones divided by the major road network 
 
 ### Make subgraphs
-road_cut <- st_cast(osm_major$geom, "LINESTRING")
+road_cut <- st_cast(lines_major$geom, "LINESTRING")
 
-minor_points <- st_cast(osm_minor$geom, "POINT")
+minor_points <- st_cast(lines_minor$geom, "POINT")
 minor_points <- st_transform(minor_points, 27700)
-all_points <- st_cast(osm$geom, "POINT")
+all_points <- st_cast(lines$geom, "POINT")
 
 minor_hull <- concaveman::concaveman(st_as_sf(all_points), concavity = 2)
 minor_hull <- st_make_valid(minor_hull)
@@ -43,13 +60,13 @@ graphs <- list()
 for(i in zones$id){
   message(paste0("Doing Zone ",i))
   zone_sub <- st_buffer(zones[zones$id == i, ], 0.0001)
-  osm_sub <- osm_minor[zone_sub, , op = st_within]
+  lines_sub <- lines_minor[zone_sub, , op = st_within]
   cents_sub <- minor_cent[zone_sub, , op = st_within]
   # qtm(zone_sub) +
   #   qtm(osm_sub) +
   #   qtm(cents_sub)
-  if(nrow(osm_sub) > 0){
-    graph_sub <- weight_streetnet(osm_sub, wt_profile = "motorcar")
+  if(nrow(lines_sub) > 0){
+    graph_sub <- weight_streetnet(lines_sub, wt_profile = "motorcar")
     graph_sub <- dodgr_centrality(graph_sub)
     graph_sub <- merge_directed_graph(graph_sub)
     clear_dodgr_cache()
@@ -60,6 +77,8 @@ for(i in zones$id){
 
 
 }
+
+saveRDS(graphs,"Data/04-graphs.RDS")
 
 graphs <- bind_rows(graphs)
 

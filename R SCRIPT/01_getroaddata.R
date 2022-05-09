@@ -19,33 +19,25 @@ library(deldir)
 
 tmap_mode("view")
 
-# ################################################################# #
-#### GET ROAD OSM DATA                                           ####
-# ################################################################# #
-
-### Find the bounding box(bb) and Using Overpass query to get Roads within the bb
-q = opq(getbb("Cambridgeshire, UK")) %>%
-  add_osm_feature(key = "highway")
-
-### Return an OSM Overpass query as an osmdata object in sf format
-osm_raw = osmdata_sf(q = q)
-
-saveRDS(osm_raw,"osm_raw.RDS")
-
 
 # ################################################################# #
 #### PREP The Road Network                                       ####
 # ################################################################# #
+
+osm_raw<-readRDS("Data/00_osm_raw.RDS")
+bound<-st_read("Data/00_bound_buf.gpkg")
 
 ### Return line, points,polys layer component respectively
 lines <- osm_raw$osm_lines
 points <- osm_raw$osm_points
 polys <- osm_raw$osm_polygons # needed for roundabouts
 
+
 ### Change CRS to British national grid 27700
 lines <- st_transform(lines, 27700)
 points <- st_transform(points, 27700)
 polys <- st_transform(polys, 27700)
+
 
 ### Filter the items that highway type is in line with one of the 13 types,
 ### since only interested in roads not paths
@@ -65,11 +57,15 @@ lines <- lines[,col_names]
 
 ### Put two layers that contain road types together
 lines <- rbind(lines, polys)
-rm(osm_raw, polys,col_names,road_types)
+
+### Return the osmdata within the boundary
+lines <-st_intersection(lines,bound)
+
 qtm(lines)
 
-saveRDS(lines,"01_network.RDS")
+st_write(lines,"Data/01_network.gpkg")
 
+rm(polys,col_names,road_types)
 
 # ################################################################# #
 #### PREP The Road Junction                                      ####
@@ -109,7 +105,7 @@ points <- points[,c("osm_id","geometry")] # Delete unnecessary column timely
 ### Look for points that intersect lines
 inter <- st_intersects(points,lines)
 len <- lengths(inter)
-points <- points[len >= 2,] # Only keep points that intersec at least 2 lines
+points <- points[len >= 2,] # Only keep points that intersect at least 2 lines
                             # i.e. a junction
 
 ### Remove any duplicated points
@@ -118,4 +114,4 @@ rm(len, rowsum, inter)
 
 qtm(points)
 
-saveRDS(points,"01_junctions.RDS")
+st_write(points, "Data/01_junctions.gpkg")

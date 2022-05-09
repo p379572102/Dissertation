@@ -2,6 +2,9 @@
 # This script assumes the data has already been cleaned and the AADT for major roads assigned
 # Rework of original file dropping the splitting an buffering stage
 
+### Clear memory
+rm(list = ls())
+
 ### Load Packages -----------------------------------------------------------
 
 library(ggplot2)
@@ -10,14 +13,15 @@ library(dodgr)
 library(tmap)
 library(dplyr)
 library(concaveman)
-tmap_mode("view")
 
+tmap_mode("view")
 
 ### Load Data ---------------------------------------------------------------
 
-lines = st_read("E:/R_language/AADT/data/iow_lines_all.gpkg")
-points = st_read("E:/R_language/AADT/data/iow_points.gpkg")
-traffic = st_read("E:/R_language/AADT/data/iow_traffic_points.gpkg")
+bound<-st_read("Data/00_bound_buf.gpkg")
+traffic_2018<-readRDS("Data/00_traffic_camb_2018.RDS")
+points <- st_read("Data/01_junctions.gpkg")
+lines <- st_read("Data/02_lines_majoraadt.gpkg")
 
 # ################################################################# #
 ####    Assign AADT to major-to-minor junction                   ####
@@ -45,7 +49,6 @@ junc_majmi <- st_join(junc_majmi, lines_major[,"aadt"])
 junc_majmi <- junc_majmi[!duplicated(junc_majmi$geom),]
 qtm(junc_majmi, dots.col = "aadt")
 
-qtm(traffic, dots.col = "aadt")
 
 # ################################################################# #
 ####                Assign AADT to minor road                    ####
@@ -57,12 +60,12 @@ junc_majmi <- st_transform(junc_majmi, 4326)
 
 ### Get mid-point of minor roads, i.e. centroid on the line
 minor_cent <- as.data.frame(st_coordinates(lines_minor))
-minor_cent <- group_by(minor_cent, L1) %>%
+minor_cent <- group_by(minor_cent, L1) %>% #Based on L1 to group the minor_cent
   summarise(X = nth(X, n()/2),
-            Y = nth(Y, n()/2)) # Don't understand
+            Y = nth(Y, n()/2)) #use the underlying median item as the group represtative
 
 ### Make dodgr graph of minor roads
-graph <- weight_streetnet(osm_minor, wt_profile = "motorcar")
+graph <- weight_streetnet(lines_minor, wt_profile = "motorcar")
 graph_ids <- graph[,c("from_id","from_lon","from_lat")]
 graph_ids <- unique(graph_ids)
 
@@ -85,7 +88,7 @@ for(i in 1:ncol(dists)){
   if(length(sub) == 0){
     nearst_junction[[i]] <- NA
   } else {
-    mindist <- names(sub)[sub == min(sub, na.rm = TRUE)]
+    mindist <- names(sub)[sub == min(sub, na.rm = TRUE)] # ???
     if(length(mindist) == 0){
       mindist <- NA
     }
@@ -98,9 +101,15 @@ for(i in 1:ncol(dists)){
 }
 nearst_junction <- unlist(nearst_junction)
 
-osm_minor$nearst_junction <- nearst_junction
-osm_minor$major_aadt <- junc_majmi$aadt[match(osm_minor$nearst_junction,
+lines_minor$nearst_junction <- nearst_junction
+lines_minor$major_aadt <- junc_majmi$aadt[match(lines_minor$nearst_junction,
                                               junc_majmi$from_id)]
 # plot each road colored by the AADT on the nearest (in time) major road
-qtm(osm_minor, lines.col = "major_aadt", lines.lwd = 3)
 
+lines_minor <- st_transform(lines_minor, 27700)
+lines_minor_sub<-st_intersection(lines_minor,bound)
+qtm(lines_minor, lines.col = "major_aadt", lines.lwd = 1)
+
+st_write(lines_major, "Data/03_lines_major.gpkg")
+st_write(lines_minor, "Data/03_lines_minor.gpkg")
+st_write(minor_cent, "Data/03_minor_cent.gpkg")
