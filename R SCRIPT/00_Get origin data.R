@@ -48,7 +48,7 @@ traffic<-read.csv(file="Data/dft_aadf_local_authority_id_97.csv",header=TRUE)
 
 #change the lon and lat to the 4326 crs
 traffic<-st_as_sf(traffic,coords = c("longitude","latitude"),crs=4326) 
-traffic<-traffic[traffic$estimation_method=="Counted",]
+#traffic<-traffic[traffic$estimation_method=="Counted",]
 traffic_2018<-traffic[traffic$year==2018,] #filter the count obtained in 2018
 traffic_2018<-traffic_2018[,c("road_name","road_type","all_motor_vehicles")] 
 

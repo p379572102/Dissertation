@@ -37,11 +37,16 @@ lines <- st_transform(lines, 27700)
 points <- st_transform(points, 27700)
 polys <- st_transform(polys, 27700)
 
+
+
 qtm(lines[sample(1:nrow(lines), 1000),])
 
 lines <- lines[bound,]
 points <- points[bound,]
 polys <- polys[bound,]
+
+#lines$ref[lines$osm_id == "1881406"] <-  "Hello"
+
 
 ### Filter the items that highway type is in line with one of the 13 types,
 ### since only interested in roads not paths
@@ -65,7 +70,7 @@ lines <- rbind(lines, polys)
 ### Return the osmdata within the boundary
 #lines <-st_intersection(lines,bound)
 
-qtm(lines[sample(1:nrow(lines), 10000),])
+qtm(lines[sample(1:nrow(lines), 1000),])
 
 st_write(lines,"Data/01_network.gpkg", delete_dsn = TRUE)
 
@@ -105,6 +110,8 @@ points <- points[rowsum == 0,]
 points <- points[is.na(points$highway) | points$highway %in%
                    c("mini_roundabout","motorway_junction"), ] # | means or
 points <- points[,c("osm_id","geometry")] # Delete unnecessary column timely
+
+st_write(points,"Data/01_all_points.gpkg")
 
 ### Look for points that intersect lines
 inter <- st_intersects(points,lines)

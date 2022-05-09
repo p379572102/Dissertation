@@ -81,12 +81,12 @@ lines_minor$major_aadt <- junc_majmi$aadt[match(lines_minor$nearst_junction,
 # plot each road colored by the AADT on the nearest (in time) major road
 
 lines_minor <- st_transform(lines_minor, 27700)
-lines_minor_sub<-st_intersection(lines_minor,bound)
+#lines_minor_sub<-st_intersection(lines_minor,bound)
 qtm(lines_minor, lines.col = "major_aadt", lines.lwd = 1)
 
-st_write(lines_major, "Data/03_lines_major.gpkg")
-st_write(lines_minor, "Data/03_lines_minor.gpkg")
-st_write(minor_cent, "Data/03_minor_cent.gpkg")
 
-#st_write(lines, "Data/02_lines_majoraadt.gpkg", delete_dsn = TRUE)
+st_write(lines_minor, "Data/03_lines_minor.gpkg", delete_dsn = TRUE)
+st_write(minor_cent, "Data/03_minor_cent.gpkg", delete_dsn = TRUE)
+st_write(junc_majmi, "Data/03_junction_major_minor.gpkg", delete_dsn = TRUE)
+
 

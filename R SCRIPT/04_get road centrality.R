@@ -15,10 +15,11 @@ library(concaveman)
 tmap_mode("view")
 
 ### Load Data ---------------------------------------------------------------
-lines<-st_read("Data/02_iow_lines_all.gpkg")
+lines<-st_read("Data/02_lines.gpkg")
 lines_major<-st_read("Data/03_lines_major.gpkg")
 lines_minor<-st_read("Data/03_lines_minor.gpkg")
 minor_cent<-st_read("Data/03_minor_cent.gpkg")
+#all_points <-st_read("Data/01_all_points.gpkg")
 ### Split the minor roads into zones divided by the major road network 
 
 ### Make subgraphs
@@ -49,11 +50,10 @@ minor_cent <- st_as_sf(minor_cent, coords = c("X","Y"), crs = 4326,
 
 # Free up memory
 rm(road_cut, points, zones_inter, both_int,minor_int, minor_hull,
-   minor_points, all_points, dists, graph, graph_ids, nearst_junction,
-   major_int, mindist, sub)
+   minor_points, all_points, nearst_junction, major_int )
 gc()
 
-
+lines_minor <- st_transform(lines_minor, 4326)
 # Loop over each zone and find the centrality of the minor road ne --------
 graphs <- list()
 
@@ -86,18 +86,19 @@ graphs <- bind_rows(graphs)
 summary(graphs$centrality)
 
 tm_shape(graphs) +
-  tm_lines(col = "centrality", lwd = 3, style = "jenks")
+  tm_lines(col = "centrality", lwd = 3, style = "fisher")
 
 
 
 # Match Up centrality with major aadt -----------------------------------------
-summary(unique(graphs$way_id) %in% unique(osm_minor$osm_id))
+summary(unique(graphs$way_id) %in% unique(lines_minor$osm_id))
 summary(duplicated(graphs$way_id)) # some osm_ids have been split
 
 graphs <- left_join(graphs,
-                       st_drop_geometry(osm_minor[,c("osm_id","major_aadt")]),
+                       st_drop_geometry(lines_minor[,c("osm_id","major_aadt")]),
                        by = c("way_id" = "osm_id"))
 
 # Graphs is a sf df of minor roads with a major_aadt and centrality --------
 head(graphs)
 
+st_write(graphs,"Data/04_minor_centrality.gpkg")

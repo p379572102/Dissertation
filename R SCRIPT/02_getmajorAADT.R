@@ -159,6 +159,6 @@ junc_majmi <- st_join(junc_majmi, lines[,"aadt"])
 junc_majmi <- junc_majmi[!duplicated(junc_majmi$geom),]
 qtm(junc_majmi, dots.col = "aadt")
 
-st_write(lines_minor, "Data/02_lines_minor.gpkg")
-st_write(lines, "Data/02_lines.gpkg")
-st_write(junc_majmi, "Data/02_junctions.gpkg")
+st_write(lines_minor, "Data/02_lines_minor.gpkg", delete_dsn = TRUE)
+st_write(lines, "Data/02_lines.gpkg", delete_dsn = TRUE)
+st_write(junc_majmi, "Data/02_junctions.gpkg", delete_dsn = TRUE)
