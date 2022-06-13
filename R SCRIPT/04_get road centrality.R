@@ -4,7 +4,7 @@
 ### Clear memory
 rm(list = ls())
 
-### Load Packages -----------------------------------------------------------
+### Load Packages 
 
 library(ggplot2)
 library(sf)
@@ -14,31 +14,34 @@ library(dplyr)
 library(concaveman)
 tmap_mode("view")
 
-### Load Data ---------------------------------------------------------------
-lines<-st_read("Data/02_lines.gpkg")
+### Load Data 
+lines<-st_read("Data/02_lines.gpkg") 
 lines_major<-st_read("Data/03_lines_major.gpkg")
 lines_minor<-st_read("Data/03_lines_minor.gpkg")
 minor_cent<-st_read("Data/03_minor_cent.gpkg")
-#all_points <-st_read("Data/01_all_points.gpkg")
-### Split the minor roads into zones divided by the major road network 
+
 
 ### Make subgraphs
-road_cut <- st_cast(lines_major$geom, "LINESTRING")
+road_cut <- st_cast(lines_major$geom, "LINESTRING") # used for the bound for the subgraphs
 
 minor_points <- st_cast(lines_minor$geom, "POINT")
 minor_points <- st_transform(minor_points, 27700)
 all_points <- st_cast(lines$geom, "POINT")
 
 minor_hull <- concaveman::concaveman(st_as_sf(all_points), concavity = 2)
+        # make a whole concaveman containing all the points
 minor_hull <- st_make_valid(minor_hull)
 minor_hull <- st_collection_extract(minor_hull)
 
 zones <- lwgeom::st_split(minor_hull, road_cut)
+        #use major road to cut the generated concaveman
 zones <- st_collection_extract(zones)
+        #extract the zones as a data frame
 zones <- st_as_sf(zones)
 zones_inter <- st_contains_properly(zones, minor_points)
+        #calculate the number of the minor road points that contained in subzones 
 zones$npoints <- lengths(zones_inter)
-zones <- zones[zones$npoints > 5, ]
+zones <- zones[zones$npoints > 5, ] # use 5 as the threshold to filter the analyse zones
 zones$id <- 1:nrow(zones)
 zones <- st_transform(zones, 4326)
 
@@ -49,8 +52,7 @@ minor_cent <- st_as_sf(minor_cent, coords = c("X","Y"), crs = 4326,
                        remove = FALSE)
 
 # Free up memory
-rm(road_cut, points, zones_inter, both_int,minor_int, minor_hull,
-   minor_points, all_points, nearst_junction, major_int )
+rm(road_cut, zones_inter,  minor_hull, minor_points, all_points )
 gc()
 
 lines_minor <- st_transform(lines_minor, 4326)
@@ -78,9 +80,8 @@ for(i in zones$id){
 
 }
 
-saveRDS(graphs,"Data/04-graphs.RDS")
-
 graphs <- bind_rows(graphs)
+saveRDS(graphs,"Data/04-graphs.RDS")
 
 # Plot the centrality of all minor roads
 summary(graphs$centrality)
@@ -90,15 +91,16 @@ tm_shape(graphs) +
 
 
 
-# Match Up centrality with major aadt -----------------------------------------
+# Match Up centrality with minor aadt -----------------------------------------
 summary(unique(graphs$way_id) %in% unique(lines_minor$osm_id))
 summary(duplicated(graphs$way_id)) # some osm_ids have been split
 
 graphs <- left_join(graphs,
-                       st_drop_geometry(lines_minor[,c("osm_id","major_aadt")]),
+                       st_drop_geometry(lines_minor[,c("osm_id", "nearst_junc_dist", 
+                                                       "major_aadt")]),
                        by = c("way_id" = "osm_id"))
 
-# Graphs is a sf df of minor roads with a major_aadt and centrality --------
-head(graphs)
 
-st_write(graphs,"Data/04_minor_centrality.gpkg")
+st_write(graphs, "Data/04_lines_minor.gpkg", delete_dsn = TRUE)
+
+
