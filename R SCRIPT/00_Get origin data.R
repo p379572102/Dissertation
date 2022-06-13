@@ -76,19 +76,28 @@ saveRDS(traffic_2018,"Data/00_traffic_camb_2018.RDS")
 # ################################################################# #
 
 ### Load LSOA boundary
-Cambridge_lsoa <- read_sf(dsn = "Data/Cambridge_lsoa_2011.shp")
-East Cambridgeshire_lsoa <- st_read("Data/East Cambridgeshire_lsoa_2011.shp")
-Fenland_lsoa <- st_read("Data/Fenland_lsoa_2011.shp")
-Hantingtonshire_lsoa <- readShapeSpatial("Data/Hantingtonshire_lsoa_2011.shp")
-Peterborough_lsoa <- readShapeSpatial("Data/Peterborough_lsoa_2011.shp")
-South Cambridgeshire_lsoa <- readShapeSpatial("Data/South Cambridgeshire_lsoa_2011.shp")
+# Cambridge_lsoa <- read_sf(dsn = "Data/Cambridge_lsoa_2011.shp")
+# East Cambridgeshire_lsoa <- st_read("Data/East Cambridgeshire_lsoa_2011.shp")
+# Fenland_lsoa <- st_read("Data/Fenland_lsoa_2011.shp")
+# Hantingtonshire_lsoa <- readShapeSpatial("Data/Hantingtonshire_lsoa_2011.shp")
+# Peterborough_lsoa <- readShapeSpatial("Data/Peterborough_lsoa_2011.shp")
+# South Cambridgeshire_lsoa <- readShapeSpatial("Data/South Cambridgeshire_lsoa_2011.shp")
+
+
+lsoa <- readRDS("Data/LSOA_Cambridgeshire.Rds")
 
 
 ### Load population and car ownership original data
 pop_carown <- read.csv (file="Data/PBCC_LSOA_data.csv",header = TRUE)
-distri <- c("Cambridge", "East Cambridgeshire", "Fenland", "Hantingtonshire", 
-            "Peterborough", "South Cambridgeshire")
-pop_carown <- pop_carown[pop_carown$LAD17NM == distri,]
+# distri <- c("Cambridge", "East Cambridgeshire", "Fenland", "Hantingtonshire", 
+#             "Peterborough", "South Cambridgeshire")
+# pop_carown <- pop_carown[pop_carown$LAD17NM == distri,]
+pop_carown <- pop_carown[pop_carown$LSOA11 %in% lsoa$geo_code, ]
+pop_carown <- pop_carown[,c("LSOA11","cars_percap_2018","pop_2018", "T2W_CarOrVan","km_CarOrVan","T2S_car")]
+
+lsoa <- left_join(lsoa, pop_carown, by = c("geo_code" = "LSOA11"))
+tm_shape(lsoa) +
+  tm_fill("cars_percap_2018", breaks = c(0,0.2,0.4,0.6,1,2,70))
 
 ### Load employment original data
 employ <- read.csv (file = "Data/employment.csv", header = TRUE)
