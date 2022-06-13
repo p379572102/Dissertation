@@ -90,6 +90,8 @@ get.aadt.major <- function(e){
   traffic.sub <- traffic_2018.major[traffic_2018.major$road_name == roadnames[e],]
   traffic.sub <- traffic.sub[!duplicated(traffic.sub$geometry),]
   lines.sub <- lines.nona[lines.nona$ref == roadnames[e],]
+  
+  
 
   ### need at least 2 points to make voronoi polygons, a cell consisting of
   ### all points of the plane closer to a certain seed than to any other
@@ -103,15 +105,19 @@ get.aadt.major <- function(e){
     ### Make a 500 buffer around the point
     voronoi <- st_buffer(traffic.sub, 500)
   }
-
+   
+  
   voronoi <- st_join(voronoi, traffic.sub) #based on the geom
 
   ### Find Intersections of roads with voronoi polygons
   inter <- st_intersects(lines.sub,voronoi)
   ### Get aadt and ncycle values 1:nrow(lines.sub)
-  lines.sub$aadt <- lapply(1:nrow(lines.sub),function(x)
-    {as.numeric(round(mean(traffic.sub$aadt[inter[[x]]])),0)})
+  lines.sub$aadt <- sapply(1:nrow(lines.sub),function(x)
+    {as.numeric(round(mean(voronoi$aadt[inter[[x]]])),0)})
 
+  qtm(voronoi, fill = NULL) + qtm(traffic.sub) +
+    tm_shape(lines.sub) +
+    tm_lines(col = "aadt", style = "jenks", palette = "Spectral", lwd = 3)
   ### Remove Unneeded Data
   lines.sub <- as.data.frame(lines.sub)
   lines.sub <- lines.sub[,c("osm_id","aadt")]
@@ -153,6 +159,7 @@ res.major$aadt <- as.numeric(res.major$aadt)
 lines_major <- left_join(lines_major,res.major, by = c("osm_id" = "osm_id"))
 rm(res.major)
 
+### get here
 qtm(bound) + qtm(lines_major[lines_major$highway %in% c("motorway","motorway_link","primary","primary_link",
                            "trunk","trunk_link"),]
     , lines.lwd = 3, lines.col = "aadt") + qtm(traffic_2018.major, dots.col="aadt")
