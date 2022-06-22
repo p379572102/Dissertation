@@ -21,6 +21,8 @@ lines_major <- st_read("Data/02_lines_major.gpkg")
 lines_minor <- st_read("Data/03_lines_minor.gpkg")
 midpo_minor <- st_read("Data/03_point_minor.gpkg")
 
+#midpo_minor <- st_as_sf(midpo_minor, coords = c("X","Y"), crs = 4326)
+
 # ################################################################# #
 ####   Make subgraphs                                            ####
 # ################################################################# #
@@ -78,11 +80,12 @@ graphs <- list()
 
 for(i in zones$id){
   message(paste0("Doing Zone ",i))
-  zone_sub <- st_buffer(zones[zones$id == i, ], 0.0001)
+  zone_sub <- zones[zones$id == i, ]
+  zone_sub <- st_transform(st_buffer(st_transform(zone_sub, 27700), 0.0001), 4326)
   lines_sub <- lines_minor[zone_sub, , op = st_within]
-  midpo_sub <- midpo_minor[zone_sub, , op = st_within]
-    #qtm(zone_sub) + qtm (lines_minor)+ qtm(lines_sub, lines.col = "major_aadt") + 
-    #qtm(midpo_sub) 
+  #midpo_sub <- midpo_minor[zone_sub, , op = st_within]
+  #summary(nrow(lines_sub) == nrow(midpo_sub))
+    #qtm(zone_sub, fill = NULL) + qtm(lines_sub, lines.col = "major_aadt") 
   if(nrow(lines_sub) > 0){
     graph_sub <- weight_streetnet(lines_sub, wt_profile = "motorcar")
     graph_sub <- dodgr_centrality(graph_sub)
@@ -90,7 +93,8 @@ for(i in zones$id){
     clear_dodgr_cache()
     graph_sub <- dodgr_to_sf(graph_sub)
     #summary(unique(graph_sub$way_id) %in% unique(lines_sub$osm_id))
-    #summary(duplicated(graph_sub$way_id)) 
+    #summary(duplicated(graph_sub$way_id))
+    print(summary(graph_sub$centrality))
     graphs[[i]] <- graph_sub
   }
 
