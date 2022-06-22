@@ -37,3 +37,8 @@ vignettes/*.pdf
 
 # R Environment Variables
 .Renviron
+Data/BoundaryData/england_ct_2011.dbf
+Data/BoundaryData/england_ct_2011.prj
+Data/BoundaryData/england_ct_2011.shp
+Data/BoundaryData/england_ct_2011.shx
+Data/BoundaryData/england_ct_2011.shx
