@@ -117,6 +117,8 @@ tm_shape(graphs) +
 
 summary(unique(graphs$way_id) %in% unique(lines_minor$osm_id))
                       # check if all the minor road get road centrality
+summary(unique(lines_minor$osm_id) %in% unique(graphs$way_id))
+
 summary(duplicated(graphs$way_id)) 
                       # some osm_ids have been split
 
