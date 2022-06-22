@@ -63,21 +63,35 @@ for(i in lsoa_Camb$id){
   lsoa_sub <- lsoa_Camb[i,]
   lines_sub <- st_intersection(lsoa_sub, lines_minor)
 
-  #qtm(bound) + qtm(lsoa_sub,fill = NULL) + qtm(line_sub, lines.col = "blue")
+  #qtm(bound) + qtm(lsoa_sub,fill = NULL) + qtm(lines_sub, lines.col = "blue")
   
-  lines_sub <- st_union(lines_sub)
-  road_length <- st_length(lines_sub)%>% units::set_units(km)
-
-  lsoa_sub$length <- road_length
-  lsoa_sub$density <- lsoa_sub$length / lsoa_sub$area
+  road_length <- sum(as.numeric(st_length(lines_sub))) / 1000
+  lsoa_area <- as.numeric(lsoa_sub$area)
   
-  density_lsoa[[i]] <- lsoa_sub
+  res <- data.frame(lsoa = lsoa_sub$geo_code,
+                    road_km = road_length,
+                    area_km2 = lsoa_area,
+                    road_density = road_length / lsoa_area)
+  
+  
+  # lines_sub <- st_union(lines_sub)
+  # road_length <- st_length(lines_sub)%>% units::set_units(km)
+  # 
+  # lsoa_sub$length <- road_length
+  # lsoa_sub$density <- lsoa_sub$length / lsoa_sub$area
+  # 
+  # density_lsoa[[i]] <- lsoa_sub
+  
+  density_lsoa[[i]] <- res
 }
 
 density_lsoa <- bind_rows(density_lsoa)
 
-st_write(density_lsoa, "Data/05_density_lsoa.gpkg", delete_dsn = TRUE)
+lsoa_Camb <- left_join(lsoa_Camb, density_lsoa, by = c("geo_code" = "lsoa"))
 
+st_write(lsoa_Camb, "Data/05_density_lsoa.gpkg", delete_dsn = TRUE)
+
+qtm(lsoa_Camb, fill = "road_density")
 
 ### Allocate road density to the minor road
 #lines_cut <- st_cast(lsoa_Camb$geom, "LINESTRING") 
@@ -91,14 +105,76 @@ st_write(density_lsoa, "Data/05_density_lsoa.gpkg", delete_dsn = TRUE)
 #lsoa_Camb <- st_as_sf(lsoa_Camb)
 
 
-midpo_minor <- line_midpoint(lines_minor) %>% st_as_sf()#fix this function!!!
-midpo_minor <- st_join(midpo_minor, density_lsoa[,c("area","length", "density")])
+
+line_segment <- function(l, n_segments, segment_length = NA) {
+  if (!is.na(segment_length)) {
+    l_length <- as.numeric(sf::st_length(l))
+    n_segments <- ceiling(l_length / segment_length)
+  }
+  # browser() # tests
+  # first_linestring = lwgeom::st_linesubstring(x = l, from = 0, to = 0.2)
+  from_to_sequence = seq(from = 0, to = 1, length.out = n_segments + 1)
+  line_segment_list = lapply(seq(n_segments), function(i)
+    lwgeom::st_linesubstring(
+      x = l,
+      from = from_to_sequence[i],
+      to = from_to_sequence[i + 1]
+    )
+  )
+  do.call(rbind, line_segment_list)
+}
+
+
+lines_minor$id <- 1:nrow(lines_minor)
+lines_minor <- lines_minor %>%
+  group_by(id) %>%
+  group_split()
+
+
+library(pbapply)
+
+cl <- parallel::makeCluster(7)
+parallel::clusterExport(cl, "line_segment", envir = environment())
+lines_minor2 <- pblapply(lines_minor, function(x){
+  line_segment(x, segment_length = 1000)
+}, cl = cl)
+parallel::stopCluster(cl)
+
+lines_minor3 <- bind_rows(lines_minor2)
+
+write_sf(lines_minor3, "Data/05_minor_roads_split_1km.gpkg")
+
+# t1 <- Sys.time()
+# lines_minor2 <- lapply(lines_minor[1:100], function(x){
+#   line_segment(x, segment_length = 1000)
+# })
+# t2 <- Sys.time()
+# difftime(t2, t1)
+
+lines_minor3$id <- 1:nrow(lines_minor3)
+
+foo <- st_coordinates(lines_minor3)
+foo <- as.data.frame(foo)
+foo2 <- foo %>% 
+  group_by(L1) %>%
+  summarise(X = X[round(n()/2)],
+            Y = Y[round(n()/2)])
+midpo_minor <- st_as_sf(foo2, coords = c("X","Y"), crs = 27700)
+st_crs(midpo_minor) <- 27700
+
+#midpo_minor <- line_midpoint(lines_minor3) %>% st_as_sf()#fix this function!!!
+midpo_minor <- st_join(midpo_minor, lsoa_Camb[,c("geo_code","area_km2","road_km", "road_density")])
+midpo_minor$id <-  1:nrow(midpo_minor)
+
                      #avoid the situation that one road cross more than one lsoa
 st_crs(midpo_minor)
-qtm(lines_minor[1:1000, ],lines.col = "blue") + 
+qtm(lines_minor3[1:1000, ],lines.col = "blue") + 
   qtm(midpo_minor[1:1000, ])
   
-lines_minor <- st_join(lines_minor, midpo_minor[,c("area","length", "density")])
+#lines_minor4 <- st_join(lines_minor3, midpo_minor[,c("area_km2","road_km", "road_density")])
 
+lines_minor4 <- left_join(lines_minor3, st_drop_geometry(midpo_minor), by = "id")
 
-st_write(lines_minor, "Data/05_lines_minor.gpkg", delete_dsn = TRUE)
+qtm(lines_minor4[1:10000,], lines.col = "geo_code")
+
+st_write(lines_minor4, "Data/05_lines_minor.gpkg", delete_dsn = TRUE)

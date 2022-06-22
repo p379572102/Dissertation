@@ -116,9 +116,11 @@ lines_minor_na <- lines_minor[is.na(lines_minor$major_aadt),]
 qtm(bound) + qtm(lines_major,line.col = "ref" ) + 
   qtm(lines_minor, lines.col = "major_aadt", lines.lwd = 2)
 
+point_minor_sf <- st_as_sf(point_minor, coords = c("X","Y"), crs = 4326)
+
 
 st_write(lines_minor, "Data/03_lines_minor.gpkg", delete_dsn = TRUE)
-st_write(junc_minor, "Data/03_junc_minor.gpkg", delete_dsn = TRUE)
+st_write(point_minor_sf, "Data/03_point_minor.gpkg", delete_dsn = TRUE)
 st_write(junc_majmi, "Data/03_junction_major_minor.gpkg", delete_dsn = TRUE)
 
 
