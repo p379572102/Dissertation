@@ -60,16 +60,16 @@ traffic_2018 <- rbind (traffic1_2018,traffic2_2018)
 # ################################################################# #
 
 ### Make Bounds and save the traffic count within the bound
-bound_buf <- st_convex_hull(st_union(traffic1_2018)) # Make Polygon Around Traffic Data
+bound_buf <- st_convex_hull(st_union(traffic_2018)) # Make Polygon Around Traffic Data
 bound_buf <- st_buffer(bound_buf, 1000) # Buffer Polygon by 1km
 
-qtm(bound_buf)+qtm(traffic_2018,dots.col = "aadt")
+qtm(bound_buf, fill = NULL, lines.col = "red")
+qtm(traffic_2018,dots.col = "aadt")
 
 traffic_2018 <- traffic_2018[bound_buf,]
 
 st_write(bound_buf, "Data/00_bound_buf.gpkg", delete_dsn = TRUE)
 saveRDS(traffic_2018,"Data/00_traffic_camb_2018.RDS")
-
 
 
 # ################################################################# #
@@ -79,12 +79,12 @@ saveRDS(traffic_2018,"Data/00_traffic_camb_2018.RDS")
 ### Load LSOA boundary
 lsoa <- read_sf("E:/R_language/Dissertation/Data/infuse_lsoa_lyr_2011_clipped/infuse_lsoa_lyr_2011_clipped.shp")
 lsoa <- lsoa[substr(lsoa$geo_code,1,1) == "E",]
-st_write(lsoa, "Data/00_LSOA_England.gpkg",delete_dsn = TRUE)
+st_write(lsoa, "Data/00_LSOA_England.gpkg", delete_dsn = TRUE)
 
 lsoa_Camb <- lsoa[bound_buf,]
 qtm(bound_buf) + qtm(lsoa_Camb, fill = NULL)
 
-st_write(lsoa_Camb, "Data/00_LSOA_Cambridgeshire.gpkg")
+st_write(lsoa_Camb, "Data/00_LSOA_Cambridgeshire.gpkg", delete_dsn = TRUE)
 # lsoa <- readRDS("Data/LSOA_Cambridgeshire.Rds")
 
 
@@ -95,7 +95,8 @@ pop_carown <- pop_carown[,c("LSOA11","cars_percap_2018","pop_2018", "T2W_CarOrVa
 
 demo_eco <- left_join(lsoa_Camb, pop_carown, by = c("geo_code" = "LSOA11"))
 tm_shape(demo_eco) +
-  tm_fill("cars_percap_2018", breaks = c(0,0.2,0.4,0.6,1,2,70))
+  tm_fill("cars_percap_2018", breaks = c(0,0.2,0.4,0.6,1,2,70))+
+
 
 ### Load employment original data
 employ <- read.csv (file = "Data/employment_Camb_2018.csv", header = TRUE)

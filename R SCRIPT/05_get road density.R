@@ -10,6 +10,7 @@ library(sf)
 library(tmap)
 library(dplyr)
 library(stplanr)
+library(maptools)
 tmap_mode("view")
 
 
@@ -19,44 +20,36 @@ lines_minor <- st_read("Data/04_lines_minor.gpkg")
 bound<-st_read("Data/00_bound_buf.gpkg")
 
 
-### Calculate the lsoa area
+###############################################
+### Find the lsoa within the bound          ###
+###############################################
+
 bound_cut <- st_cast(bound$geom, "LINESTRING") 
 lines_minor <- st_transform(lines_minor, 27700)
 
+### split the lsoa by the bound
 lsoa_Camb <- lwgeom::st_split(lsoa_Camb, bound_cut)
-lsoa_Camb <- st_collection_extract(lsoa_Camb)
+lsoa_Camb <- st_collection_extract(lsoa_Camb) 
 lsoa_Camb <- st_as_sf(lsoa_Camb)
-                      # split the lsoa within and not within the bound
-
+                      
+### filter the lsoa that are within the bound
 lsoa_cent <- st_centroid(lsoa_Camb)
 cent_inter <- as.data.frame(st_intersects(bound, lsoa_cent))
 lsoa_Camb <- lsoa_Camb[cent_inter$col.id, ]
-                      # filter the lsoa not within the bound
+summary(duplicated(lsoa_Camb$geo_code))
+                            # to check if there are some lsoa with more than one zone
+lsoa_Camb1 <-再想想如何将表格当种带有不同空间信息，但具有相同编号的行合并
 
-lines_inter <- st_intersects(lsoa_Camb,lines_minor)
-
-lsoa_Camb_sub <- list()
-for (i in 1:nrow(lsoa_Camb)){
-  if (length(lines_inter[[i]])>0){
-    lsoa_Camb_sub[[i]] <- lsoa_Camb[i,]
-  } 
-}
-
-lsoa_Camb <- bind_rows(lsoa_Camb_sub)
-#geo_code <- unique(lsoa_Camb$geo_code)
-#geo_code.sub <- geo_code[!geo_code %in% lsoa_Camb_sub$geo_code]
-
-lsoa_Camb$area <- st_area(lsoa_Camb) %>% units::set_units(km^2)
-
-qtm(bound) + qtm(lsoa_Camb,fill = NULL)
-rm(bound_cut, lsoa_Camb_sub, lines_inter, lsoa_cent, cent_inter)
+qtm(bound) + qtm(lsoa_Camb, fill = NULL)
+rm(bound_cut, lsoa_cent, cent_inter)
 
 st_write(lsoa_Camb, "Data/05_lsoa_Camb.gpkg", delete_dsn = TRUE)
 
 
-### Calculate road density for each lsoa
-lsoa_Camb$id <- 1:nrow(lsoa_Camb)
-
+#############################################
+### Calculate road density                ###
+#############################################
+lsoa_Camb$id <-1:nrow(lsoa_Camb)
 density_lsoa <- list()
 for(i in lsoa_Camb$id){
   message(paste0("Doing lsoa ",i))
@@ -66,44 +59,39 @@ for(i in lsoa_Camb$id){
   #qtm(bound) + qtm(lsoa_sub,fill = NULL) + qtm(lines_sub, lines.col = "blue")
   
   road_length <- sum(as.numeric(st_length(lines_sub))) / 1000
-  lsoa_area <- as.numeric(lsoa_sub$area)
+  lsoa_area <- as.numeric(st_area(lsoa_sub)%>% units::set_units(km^2))
   
-  res <- data.frame(lsoa = lsoa_sub$geo_code,
+  res <- data.frame(id = lsoa_sub$id,
                     road_km = road_length,
                     area_km2 = lsoa_area,
                     road_density = road_length / lsoa_area)
-  
-  
-  # lines_sub <- st_union(lines_sub)
-  # road_length <- st_length(lines_sub)%>% units::set_units(km)
-  # 
-  # lsoa_sub$length <- road_length
-  # lsoa_sub$density <- lsoa_sub$length / lsoa_sub$area
-  # 
-  # density_lsoa[[i]] <- lsoa_sub
   
   density_lsoa[[i]] <- res
 }
 
 density_lsoa <- bind_rows(density_lsoa)
-
-lsoa_Camb <- left_join(lsoa_Camb, density_lsoa, by = c("geo_code" = "lsoa"))
+summary(is.na(density_lsoa$road_density))
+summary(unique(density_lsoa$id) %in% unique(lsoa_Camb$id))
+lsoa_Camb <- left_join(lsoa_Camb, density_lsoa, by = c("id" = "id"))
 
 st_write(lsoa_Camb, "Data/05_density_lsoa.gpkg", delete_dsn = TRUE)
 
-qtm(lsoa_Camb, fill = "road_density")
+tm1 <- qtm(lsoa_Camb, fill = "road_density")
+tmap_save(tm1, filename = "Plot/05_lsoa_road_density.png")
 
-### Allocate road density to the minor road
+
+#########################################################
+### Allocate road density to the minor road           ###
+#########################################################
+
 #lines_cut <- st_cast(lsoa_Camb$geom, "LINESTRING") 
-
 #lines_minor.sub <- lines_minor[lines_cut, ,op = st_intersects]
 #lines_break <- lines_minor.sub$geom
 #lsoa_break <- lsoa_Camb$geom
-#lines_minor.break <- line_breakup(lines_break, lsoa_break) !!!take so long !!!
-#lines_minor.sub <- lwgeom::st_split(lines_minor.sub, lines_cut) !!!take so long !!!
+#lines_minor.break <- line_breakup(lines_break, lsoa_break)
+#lines_minor.sub <- lwgeom::st_split(lines_minor.sub, lines_cut) 
 #lines_minor.sub <- st_collection_extract(lines_minor.sub)
 #lsoa_Camb <- st_as_sf(lsoa_Camb)
-
 
 
 line_segment <- function(l, n_segments, segment_length = NA) {
@@ -153,28 +141,28 @@ write_sf(lines_minor3, "Data/05_minor_roads_split_1km.gpkg")
 
 lines_minor3$id <- 1:nrow(lines_minor3)
 
-foo <- st_coordinates(lines_minor3)
-foo <- as.data.frame(foo)
-foo2 <- foo %>% 
-  group_by(L1) %>%
-  summarise(X = X[round(n()/2)],
-            Y = Y[round(n()/2)])
-midpo_minor <- st_as_sf(foo2, coords = c("X","Y"), crs = 27700)
-st_crs(midpo_minor) <- 27700
+#foo <- st_coordinates(lines_minor3)
+#foo <- as.data.frame(foo)
+#foo2 <- foo %>% 
+#  group_by(L1) %>%
+#  summarise(X = X[round(n()/2)],
+#            Y = Y[round(n()/2)])
+#midpo_minor <- st_as_sf(foo2, coords = c("X","Y"), crs = 27700)
+#st_crs(midpo_minor) <- 27700
 
-#midpo_minor <- line_midpoint(lines_minor3) %>% st_as_sf()#fix this function!!!
+midpo_minor <- line_midpoint(lines_minor3) %>% st_as_sf()
 midpo_minor <- st_join(midpo_minor, lsoa_Camb[,c("geo_code","area_km2","road_km", "road_density")])
-midpo_minor$id <-  1:nrow(midpo_minor)
+length(st_intersects(midpo_minor, lsoa_Camb))
+summary(is.na(midpo_minor$road_density)) #3 minor midpoint cannot get data
 
-                     #avoid the situation that one road cross more than one lsoa
-st_crs(midpo_minor)
 qtm(lines_minor3[1:1000, ],lines.col = "blue") + 
   qtm(midpo_minor[1:1000, ])
-  
-#lines_minor4 <- st_join(lines_minor3, midpo_minor[,c("area_km2","road_km", "road_density")])
 
+midpo_minor$id <-  1:nrow(midpo_minor)
 lines_minor4 <- left_join(lines_minor3, st_drop_geometry(midpo_minor), by = "id")
+summary(is.na(lines_minor4$road_density)) #3 minor road cannot get data
 
-qtm(lines_minor4[1:10000,], lines.col = "geo_code")
+tm2 <- qtm(bound) + qtm(lines_minor4, lines.col = "road_density", lines.lwd = 3)
+tmap_save(tm2, filename = "Plot/05_road_density.png")
 
 st_write(lines_minor4, "Data/05_lines_minor.gpkg", delete_dsn = TRUE)

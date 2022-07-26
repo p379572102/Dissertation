@@ -22,7 +22,6 @@ tmap_mode("view")
 bound<-st_read("Data/00_bound_buf.gpkg")
 lines_minor <- st_read("Data/02_lines_minor.gpkg")
 lines_major <- st_read("Data/02_lines_major.gpkg")
-#lines <- st_read("Data/02_lines.gpkg")
 lines <- st_read("Data/01_network.gpkg")
 junc_majmi <- st_read("Data/02_junctions.gpkg")
 
@@ -38,8 +37,8 @@ junc_majmi <- st_transform(junc_majmi, 4326)
 ### Get mid-point of minor roads, i.e. centroid on the line
 point_minor <- as.data.frame(st_coordinates(lines_minor))
 point_minor <- group_by(point_minor, L1) %>% # Based on L1 to group the junc_minor
-  summarise(X = nth(X, n()/2),
-            Y = nth(Y, n()/2)) 
+  summarise(X = X[round(n()/2)],
+            Y = Y[round(n()/2)]) 
                                   # use the n/2 item as the group represent
 
 ### Make dodgr graph of minor roads
@@ -58,9 +57,7 @@ point_minor <- left_join(point_minor, graph_ids, by = c("X" = "from_lon",
                             # link the start point which is the minor junction to the data.frame
 
 
-
-# For each minor road , find the nearest (in time) junction  --------
-
+### For each minor road , find the nearest (in time) junction
 dists <- dodgr_times(graph,
                      from = junc_majmi$from_id,
                      to = point_minor$from_id,
@@ -68,7 +65,7 @@ dists <- dodgr_times(graph,
 notna <- colSums(!is.na(dists))
 notna <- as.data.frame(notna)
 summary(notna$notna==0)
-         #The result shows 180 minor roads don't acquire any value
+         #The result shows 217 minor roads don't acquire any value
 
 saveRDS(dists,"Data/03_dists_matrix.Rds")
 
@@ -113,14 +110,16 @@ lines_minor <- st_transform(lines_minor, 27700)
 lines_minor_na <- lines_minor[is.na(lines_minor$major_aadt),]
 
 #lines_minor <- lines_minor[!is.na(lines_minor$major_aadt),]
-qtm(bound) + qtm(lines_major,line.col = "ref" ) + 
-  qtm(lines_minor, lines.col = "major_aadt", lines.lwd = 2)
+tm1 <- qtm(bound) + qtm(lines_minor, lines.col = "major_aadt", lines.lwd = 2)+
+  qtm(lines_major, line.col = "ref" )  
+tmap_save(tm1, "Plot/03_major_aadt.png")
 
-point_minor_sf <- st_as_sf(point_minor, coords = c("X","Y"), crs = 4326)
-
+tm2 <-qtm(bound) + qtm(lines_minor, lines.col = "nearest_junc_dist", lines.lwd = 2)+
+  qtm(lines_major, line.col = "ref" ) 
+tmap_save(tm2, "Plot/03_major_distance.png")
 
 st_write(lines_minor, "Data/03_lines_minor.gpkg", delete_dsn = TRUE)
-st_write(point_minor_sf, "Data/03_point_minor.gpkg", delete_dsn = TRUE)
+st_write(point_minor, "Data/03_point_minor.gpkg", delete_dsn = TRUE)
 st_write(junc_majmi, "Data/03_junction_major_minor.gpkg", delete_dsn = TRUE)
 
 

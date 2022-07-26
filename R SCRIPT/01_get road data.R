@@ -33,17 +33,18 @@ lines <- osm_raw$osm_lines
 points <- osm_raw$osm_points
 polys <- osm_raw$osm_polygons # needed for roundabouts
 
+rm(osm_raw)
 
 ### Change CRS to British national grid 27700
 lines <- st_transform(lines, 27700)
 points <- st_transform(points, 27700)
 polys <- st_transform(polys, 27700)
 
-qtm(lines[sample(1:nrow(lines), 1000),])
+qtm(lines[sample(1:nrow(lines), 1000), ])
 
-lines <- lines[bound,]
-points <- points[bound,]
-polys <- polys[bound,]
+lines <- lines[bound, ]
+points <- points[bound, ]
+polys <- polys[bound, ]
 
 
 ### Filter the items that highway type is in line with one of the 13 types,
@@ -51,25 +52,23 @@ polys <- polys[bound,]
 road_types <- c("motorway","motorway_link","trunk","trunk_link","living_street","primary",
               "primary_link","residential","secondary", "secondary_link",
               "tertiary",  "tertiary_link", "unclassified")
-polys <- polys[polys$highway %in% road_types,]
+polys <- polys[polys$highway %in% road_types, ]
 
-lines <- lines[lines$highway %in% road_types,]
+lines <- lines[lines$highway %in% road_types, ]
 
 
 ### Cast sf object polys into Linestring and only save 7 variables
 polys <- st_cast(polys, "LINESTRING")
 col_names<-c("osm_id","name","ref","highway",
              "junction","maxspeed","geometry")
-polys <- polys[,col_names]
-lines <- lines[,col_names]
+polys <- polys[, col_names]
+lines <- lines[, col_names]
 
 ### Put two layers that contain road types together
 lines <- rbind(lines, polys) 
 
-
 ### Return the osmdata within the boundary
-
-qtm(lines[sample(1:nrow(lines), 1000),])
+qtm(lines[sample(1:nrow(lines), 1000), ])
 
 st_write(lines,"Data/01_network.gpkg", delete_dsn = TRUE)
 
@@ -89,13 +88,13 @@ rm(polys,col_names,road_types)
 col.names <- names(points)[!names(points) %in% c("osm_id","highway", "crossing",
                                                  "crossing_ref","geometry")]
 points.sub <- points
-points <- points[,c("osm_id","highway")]
+points <- points[, c("osm_id","highway")]
 
 ### change it into data.frame then can be calculated, and discard the geometry 
 ### to increase processing efficiency
 points.sub <- as.data.frame(points.sub) 
 points.sub$geometry <- NULL 
-points.sub <- points.sub[,col.names]
+points.sub <- points.sub[, col.names]
 
 ### Find the points with tags and change the amount of tags into integer
 rowsum <- as.integer(rowSums(!is.na(points.sub))) 
@@ -103,7 +102,7 @@ rowsum <- as.integer(rowSums(!is.na(points.sub)))
 rm(points.sub, col.names)
 
 ### Remove points with any tags
-points <- points[rowsum == 0,] 
+points <- points[rowsum == 0, ] 
 
 ### Check highway tag to remove things like traffic lights
 points <- points[is.na(points$highway) | points$highway %in%
@@ -115,13 +114,14 @@ st_write(points,"Data/01_all_points.gpkg",delete_dsn = TRUE)
 ### Looking for points that intersect lines
 inter <- st_intersects(points,lines) #return the value of points
 len <- lengths(inter)
-points <- points[len >= 2,] # Only keep points that intersect at least 2 lines
+points <- points[len >= 2, ] # Only keep points that intersect at least 2 lines
                             # i.e. a junction
 
 ### Remove any duplicated points
-points <- points[!duplicated(points$geometry),]
+points <- points[!duplicated(points$geometry), ]
 rm(len, rowsum, inter)
 
-qtm(points[sample(1:nrow(points), 1000),])
+#qtm(lines, lines.col = "blue") + qtm(points)
+qtm(points[sample(1:nrow(points), 1000), ])
 
 st_write(points, "Data/01_junctions.gpkg", delete_dsn = TRUE)

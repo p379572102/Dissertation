@@ -36,8 +36,8 @@ points_junc <- st_read("Data/01_junctions.gpkg")
 major_ref <- c("motorway","motorway_link","primary",
                "primary_link","trunk","trunk_link")
 
-lines_major <- lines[lines$highway %in% major_ref,]
-lines_minor <- lines[!lines$highway %in% major_ref,]
+lines_major <- lines[lines$highway %in% major_ref, ]
+lines_minor <- lines[!lines$highway %in% major_ref, ]
 
 
 ### Get the centroid of each major lines
@@ -70,13 +70,14 @@ for(k in 1:2){
 
 
 ### manually check the ref and fix the unreasonable ones
-qtm(lines_major, lines.col = "ref", lines.lwd = 2)
+qtm(bound, ) + qtm(lines_major, lines.col = "ref", lines.lwd = 2) +
+  qtm(traffic_2018, dots.col = "aadt")
+
 lines_major$ref[lines_major$osm_id == "148927689"] <-  "A1" 
               # Based on the map to find the lost / wrong road and fix it
 lines_major$ref[lines_major$osm_id == "534093170"] <-  "A1307" 
-
+lines_major$ref[lines_major$ref == "B1081"] <-  "A1"
 rm(nn,lines_major_cents)
-
 
 # ############################################ #
 ####   Assign Traffic Counts to the roads   ####
@@ -100,9 +101,9 @@ get.aadt.major <- function(e){
 
   }else{
     ### Make a 500 buffer around the point
-    voronoi <- st_buffer(traffic.sub, 5000)
+    voronoi <- st_buffer(traffic.sub, 15000)
   }
-qtm(voronoi) + qtm(lines.sub, lines.col = "aadt") + qtm(traffic.sub,dots.col = "aadt")
+#qtm(voronoi) + qtm(lines.sub, lines.col = "aadt") + qtm(traffic.sub,dots.col = "aadt")
  
 
   ### Find Intersections of roads with voronoi polygons
@@ -125,11 +126,13 @@ traffic_2018$road_name[traffic_2018$road_name == "A14(M)"] <-  "A14"
          # check with the google map and fix the underlying wrong road name
 traffic_2018$road_type[traffic_2018$road_name == "A6118"] <-  "Minor"
          # check with the google map and fix the underlying wrong road type
+traffic_2018$road_name[traffic_2018$aadt == "7335"] <-  "A1175"
+
 rm(roadnames.sub)
 
 ### Separate Major and Minor Roads of the AADT Data
-traffic_2018.major <- traffic_2018[traffic_2018$road_type=="Major",]
-traffic_2018.minor <- traffic_2018[traffic_2018$road_type=="Minor",]
+traffic_2018.major <- traffic_2018[traffic_2018$road_type=="Major", ]
+traffic_2018.minor <- traffic_2018[traffic_2018$road_type=="Minor", ]
 saveRDS(traffic_2018.minor,"Data/02-traffic_2018.minor.RDS")
 
 ### Allocate traffic counts to the major roads
@@ -158,15 +161,25 @@ qtm(bound) + qtm(lines_major[lines_major$highway %in% c("motorway","motorway_lin
 
 
 ### Manually fix the road sections with NA aadt value
-lines_major <- lines_major[lines_major$ref!="A1122",]
-                       # The A1122 whose aadt is NA isn't the road in the study case
+road_not_in <- c("A427", "A1122", "A6121" )
+                   # Those whose aadt is NA isn't the road in the study case 
+lines_major <- lines_major[!lines_major$ref %in% road_not_in, ]
 
-aadt_na <- lines_major[is.na(lines_major$aadt),]
-lines_major <- lines_major[!is.na(lines_major$aadt),]
+aadt_na <- lines_major[is.na(lines_major$aadt), ]
+lines_major <- lines_major[!is.na(lines_major$aadt), ]
 aadt_na$aadt <- 12593 #use the aadt from the nearest road section
 lines_major <- rbind(lines_major,aadt_na)
 
 summary(is.na(lines_major$aadt))
+
+tm1 <- qtm(bound) + 
+  qtm(lines_major[lines_major$highway %in% c("motorway","motorway_link",
+                                        "primary","primary_link",
+                                        "trunk","trunk_link"),]
+                       , lines.lwd = 4, lines.col = "aadt") + 
+  qtm(traffic_2018.major, dots.col="aadt")
+tmap_save(tm1, "Plot/02_major_road_aadt.png")
+
 
 # ################################################################# #
 ####   Allocate the aadt to the major and minor road junctions   ####
@@ -180,24 +193,15 @@ minor_int = lengths(minor_int)
 major_int = lengths(major_int)
 both_int = ifelse(minor_int > 0 & major_int > 0, TRUE, FALSE)
 
-junc_majmi = points_junc[both_int,]
+junc_majmi = points_junc[both_int, ]
 
 ### Match Major Road AADT onto junctions
-junc_majmi <- st_join(junc_majmi, lines_major[,"aadt"])
-junc_majmi <- junc_majmi[!duplicated(junc_majmi$geom),]
-qtm(junc_majmi, dots.col = "aadt")
+junc_majmi <- st_join(junc_majmi, lines_major[ ,"aadt"])
+junc_majmi <- junc_majmi[!duplicated(junc_majmi$geom), ]
 
-
-### Allocate the traffic counts to the minor roads
-#traffic_2018.minor <- traffic_2018.minor[,"aadt"]
-#lines_minor <- st_join(lines_minor, traffic_2018.minor,st_is_within_distance, dist = 7)
-                                  # Buffer as traffic points are away from roads
-#summary(is.na(lines_minor$aadt))  # Check if the traffic counts number is right
-#qtm(lines_minor, lines.lwd = 3, lines.col = "aadt") 
-#       + qtm (traffic_2018.minor, dots.col ="aadt")
-
-#lines <- rbind(lines_major, lines_minor)
-
+tm2 <- qtm(bound) + qtm(lines_major, lines.col = "blue") + 
+  qtm(lines_minor, lines.col = "yellow") + qtm(junc_majmi, dots.col = "aadt")
+tmap_save(tm2, "Plot/02_major_junction_aadt.png")
 
 st_write(lines_minor, "Data/02_lines_minor.gpkg", delete_dsn = TRUE)
 st_write(lines_major, "Data/02_lines_major.gpkg", delete_dsn = TRUE)
