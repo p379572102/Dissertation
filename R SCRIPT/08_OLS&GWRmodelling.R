@@ -10,6 +10,7 @@ rm(list = ls())
 library(tidyverse)
 # Nice tables
 library(kableExtra)
+# 
 library(sf)
 # Spatial objects conversion
 library(sp) 

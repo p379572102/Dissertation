@@ -10,12 +10,10 @@
 rm(list = ls())
 
 ### Load libraries
+# Processing spatial objects
 library(sf)
+# Map view
 library(tmap)
-library(osmdata)
-library(dplyr)
-library(dismo)
-library(deldir)
 
 tmap_mode("view")
 
@@ -40,8 +38,7 @@ lines <- st_transform(lines, 27700)
 points <- st_transform(points, 27700)
 polys <- st_transform(polys, 27700)
 
-qtm(lines[sample(1:nrow(lines), 1000), ])
-
+### Return the osmdata within the boundary
 lines <- lines[bound, ]
 points <- points[bound, ]
 polys <- polys[bound, ]
@@ -67,8 +64,9 @@ lines <- lines[, col_names]
 ### Put two layers that contain road types together
 lines <- rbind(lines, polys) 
 
-### Return the osmdata within the boundary
 qtm(lines[sample(1:nrow(lines), 1000), ])
+qtm(bound, fill = NULL) + 
+      qtm(lines, lines.col = "highway" )
 
 st_write(lines,"Data/01_network.gpkg", delete_dsn = TRUE)
 
@@ -105,14 +103,18 @@ rm(points.sub, col.names)
 points <- points[rowsum == 0, ] 
 
 ### Check highway tag to remove things like traffic lights
+unique(points$highway)
 points <- points[is.na(points$highway) | points$highway %in%
-                   c("mini_roundabout","motorway_junction"), ] # | means or
-points <- points[,c("osm_id","geometry")] # Delete unnecessary column timely
+                 c( "mini_roundabout", "crossing", "motorway_junction", 
+                    "turning_circle", "give_way", "turning_loop"), ] # need further check!!!
+
+# Delete unnecessary column timely
+points <- points[,c("osm_id","geometry")] 
 
 st_write(points,"Data/01_all_points.gpkg",delete_dsn = TRUE)
 
 ### Looking for points that intersect lines
-inter <- st_intersects(points,lines) #return the value of points
+inter <- st_intersects(points, lines) #return the value of points
 len <- lengths(inter)
 points <- points[len >= 2, ] # Only keep points that intersect at least 2 lines
                             # i.e. a junction

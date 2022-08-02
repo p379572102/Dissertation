@@ -7,13 +7,14 @@
 rm(list = ls())
 
 ### Load Packages -----------------------------------------------------------
-
-library(ggplot2)
+# Process spatial objects
 library(sf)
+# Make dodgr graph
 library(dodgr)
+# Map view
 library(tmap)
+# Data frame manipulation
 library(dplyr)
-library(concaveman)
 
 tmap_mode("view")
 
@@ -44,7 +45,7 @@ point_minor <- group_by(point_minor, L1) %>% # Based on L1 to group the junc_min
 ### Make dodgr graph of minor roads
 graph <- weight_streetnet(lines_minor, wt_profile = "motorcar")
                              # use motorcar mode to weight the minor road
-graph_ids <- graph[,c("from_id","from_lon","from_lat")]
+graph_ids <- graph[ ,c("from_id","from_lon","from_lat")]
                  # focus on the certain start point rather than the end points
 graph_ids <- unique(graph_ids)  
 
@@ -101,25 +102,24 @@ dist_junc <- unlist(dist_junc)
 
 lines_minor$nearest_junc <- nearest_junc
 lines_minor$nearest_junc_dist <- dist_junc
-lines_minor$major_aadt <- junc_majmi$aadt[match(lines_minor$nearest_junc,
+lines_minor$major_flow <- junc_majmi$traffic_flow[match(lines_minor$nearest_junc,
                                                 junc_majmi$from_id)]
 
 # plot each road colored by the AADT on the nearest (in time) major road
 
 lines_minor <- st_transform(lines_minor, 27700)
-lines_minor_na <- lines_minor[is.na(lines_minor$major_aadt),]
+lines_minor_na <- lines_minor[is.na(lines_minor$major_flow), ]
 
-#lines_minor <- lines_minor[!is.na(lines_minor$major_aadt),]
-tm1 <- qtm(bound) + qtm(lines_minor, lines.col = "major_aadt", lines.lwd = 2)+
+tm1 <- qtm(bound) + qtm(lines_minor, lines.col = "major_flow", lines.lwd = 1)+
   qtm(lines_major, line.col = "ref" )  
-tmap_save(tm1, "Plot/03_major_aadt.png")
+tmap_save(tm1, "Plot/03_major_flow.png")
 
-tm2 <-qtm(bound) + qtm(lines_minor, lines.col = "nearest_junc_dist", lines.lwd = 2)+
+tm2 <-qtm(bound) + qtm(lines_minor, lines.col = "nearest_junc_dist", lines.lwd = 1)+
   qtm(lines_major, line.col = "ref" ) 
 tmap_save(tm2, "Plot/03_major_distance.png")
 
 st_write(lines_minor, "Data/03_lines_minor.gpkg", delete_dsn = TRUE)
 st_write(point_minor, "Data/03_point_minor.gpkg", delete_dsn = TRUE)
-st_write(junc_majmi, "Data/03_junction_major_minor.gpkg", delete_dsn = TRUE)
+st_write(junc_majmi, "Data/03_junc_majmi.gpkg", delete_dsn = TRUE)
 
 

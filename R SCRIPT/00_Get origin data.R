@@ -1,16 +1,22 @@
 # 00 Aim to get the the origin data
 
-
 ### Clear memory
 rm(list = ls())
 
 ### Load libraries
+# Processing spatial objects
 library(sf)
+# Map view
 library(tmap)
+# To load road data
 library(osmdata)
+# To group data
 library(dplyr)
-library(dismo)
-library(deldir)
+# To generate plot
+library(ggplot2)
+#library(dismo)
+
+#library(deldir)
 
 tmap_mode("view")
 
@@ -32,44 +38,64 @@ saveRDS(osm_raw,"Data/00_osm_raw.RDS")
 # ################################################################# #
 #### GET Traffic count data                                      ####
 # ################################################################# #
-traffic1<-read.csv(file="Data/dft_aadf_local_authority_id_97.csv", header=TRUE)
-traffic2<-read.csv(file="Data/dft_aadf_local_authority_id_129.csv", header=TRUE)
+# Traffic count points in Cambridgeshire
+traffic1 <- read.csv(file="Data/dft_aadf_local_authority_id_97.csv", header=TRUE)
 
-### change the lon and lat to the 4326 crs
-traffic1<-st_as_sf(traffic1,coords = c("longitude","latitude"),crs=4326) 
-traffic2<-st_as_sf(traffic2,coords = c("longitude","latitude"),crs=4326)
+# Traffic count points in Peterborough
+traffic2 <- read.csv(file="Data/dft_aadf_local_authority_id_129.csv", header=TRUE)
 
-### traffic<-traffic[traffic$estimation_method=="Counted",]
-traffic1_2018<-traffic1[traffic1$year==2018,] #filter the count obtained in 2018
-traffic1_2018<-traffic1_2018[,c("road_name","road_type","all_motor_vehicles")] 
+# Change the lon and lat to the 4326 crs
+traffic1 <- st_as_sf(traffic1,coords = c("longitude","latitude"),crs = 4326) 
+traffic2 <- st_as_sf(traffic2,coords = c("longitude","latitude"),crs = 4326)
 
-names(traffic1_2018)<-c("road_name","road_type","aadt","geometry")
-traffic1_2018 <- st_transform(traffic1_2018,27700)
+# Filter the count points in 2018
+traffic1_2018 <- traffic1[traffic1$year == 2018, ] 
+traffic2_2018 <- traffic2[traffic2$year == 2018, ] 
 
-traffic2_2018 <- traffic2[traffic2$year==2018,] #filter the count obtained in 2018
-traffic2_2018 <- traffic2_2018[,c("road_name","road_type","all_motor_vehicles")] 
+traffic_2018 <- rbind (traffic1_2018,traffic2_2018) 
+traffic_2018 <- traffic_2018[ , c("road_name","road_type","all_motor_vehicles")] 
 
-names(traffic2_2018) <- c("road_name","road_type","aadt","geometry")
-traffic2_2018 <- st_transform (traffic2_2018,27700)
+names(traffic_2018)<-c("road_name","road_type","traffic_flow","geometry")
+head(traffic_2018)
+traffic_2018 <- st_transform(traffic_2018,27700)
+saveRDS(traffic_2018,"Data/00_traffic_camb_2018.RDS")
 
-traffic_2018 <- rbind (traffic1_2018,traffic2_2018)
+# Generate plot
+traffic_2018$class <- substr(traffic_2018$road_name, 1, 1)
+head(traffic_2018)
+traffic_2018_plot <- traffic_2018
+traffic_2018_plot$class <- as.factor(traffic_2018_plot$class)
+ggplot(traffic_2018_plot, aes(x = class, y = traffic_flow)) + 
+  geom_boxplot(width = 0.7) +
+  scale_x_discrete(limits = c("M", "A", "B", "C", "U")) 
+  # geom_dotplot(
+  #  binaxis = "y", stackdir = "center",
+  #  stackratio = 0.5, fill = "black",
+  #  dotsize = 0.5
+  #)  
 
 
 # ################################################################# #
 #### GET Boundary                                                ####
 # ################################################################# #
 
-### Make Bounds and save the traffic count within the bound
-bound_buf <- st_convex_hull(st_union(traffic_2018)) # Make Polygon Around Traffic Data
-bound_buf <- st_buffer(bound_buf, 1000) # Buffer Polygon by 1km
+# Make Polygon Around Traffic Data
+bound_buf <- st_convex_hull(st_union(traffic_2018)) 
 
-qtm(bound_buf, fill = NULL, lines.col = "red")
-qtm(traffic_2018,dots.col = "aadt")
+# Buffer Polygon by 1km
+bound_buf <- st_buffer(bound_buf, 1000) 
 
-traffic_2018 <- traffic_2018[bound_buf,]
+# Make map
+tm_shape(bound_buf) + 
+  tm_fill(col = "orange", alpha = 0.3) + 
+  tm_borders(col = "black", lwd = 1) +
+  tm_legend()
+  qtm(traffic_2018, dots.col = "traffic_flow")
 
+
+# Write data
 st_write(bound_buf, "Data/00_bound_buf.gpkg", delete_dsn = TRUE)
-saveRDS(traffic_2018,"Data/00_traffic_camb_2018.RDS")
+
 
 
 # ################################################################# #

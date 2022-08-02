@@ -5,13 +5,17 @@
 rm(list = ls())
 
 ### Load Packages 
-
-library(ggplot2)
+# Process spatial objects
 library(sf)
+# Make dodgr graph
 library(dodgr)
-library(tmap)
+# Data frame manipulation
 library(dplyr)
-library(concaveman)
+# Map view
+library(tmap)
+#library(ggplot2)
+#library(concaveman)
+
 tmap_mode("view")
 
 ### Load Data 
@@ -20,7 +24,6 @@ bound<-st_read("Data/00_bound_buf.gpkg")
 lines_major <- st_read("Data/02_lines_major.gpkg")
 lines_minor <- st_read("Data/03_lines_minor.gpkg")
 #midpo_minor <- st_read("Data/03_point_minor.gpkg")
-
 #midpo_minor <- st_as_sf(midpo_minor, coords = c("X","Y"), crs = 4326)
 
 # ################################################################# #
@@ -93,9 +96,10 @@ for(i in zones$id){
     graph_sub <- merge_directed_graph(graph_sub)
     clear_dodgr_cache()
     graph_sub <- dodgr_to_sf(graph_sub)
+    graph_sub$std_centrality <- graph_sub$centrality / zone_sub$npoints
     #summary(unique(graph_sub$way_id) %in% unique(lines_sub$osm_id))
     #summary(duplicated(graph_sub$way_id))
-    print(summary(graph_sub$centrality))
+    #print(summary(graph_sub$centrality))
     graphs[[i]] <- graph_sub
   }
 
@@ -110,7 +114,7 @@ summary(!is.na(graphs$centrality))
 
 tm2 <- qtm(bound) +
   tm_shape(graphs) +
-  tm_lines(col = "centrality", lwd = 3, style = "fisher") + 
+  tm_lines(col = "std_centrality", lwd = 2, style = "fisher") + 
   qtm(lines_major, line.col = "ref" )
 tmap_save(tm2, filename = "Plot/04_centrality.png")
 
@@ -129,9 +133,10 @@ summary(duplicated(graphs$way_id))
 #lines_minor2 <- lwgeom::st_split(lines_minor2, road_cut)
 #saveRDS(lines_minor2,"Data/04-lines_minor.RDS")
 
-lines_minor <- left_join(graphs[,c("way_id" ,"centrality")],
-                       st_drop_geometry(lines_minor[,c("osm_id", "highway", 
-                                                       "nearest_junc_dist",  "major_aadt")]),
+lines_minor <- left_join(graphs[,c("way_id" ,"centrality", "std_centrality")],
+                       st_drop_geometry(lines_minor[ ,c("osm_id", "highway", 
+                                                        "nearest_junc_dist", 
+                                                        "major_flow")]),
                        by = c("way_id" = "osm_id"))
 
 qtm(bound, fill = NULL) + qtm(lines_minor, lines.col = "centrality", lines.lwd = 2, )

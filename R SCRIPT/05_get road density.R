@@ -5,12 +5,16 @@ rm(list = ls())
 
 
 ### Load Packages 
-library(ggplot2)
+# Process spatial objects
 library(sf)
+# Map view
 library(tmap)
+# Data frame manipulation
 library(dplyr)
+# Split roads
 library(stplanr)
-library(maptools)
+#library(maptools)
+
 tmap_mode("view")
 
 
@@ -38,12 +42,24 @@ cent_inter <- as.data.frame(st_intersects(bound, lsoa_cent))
 lsoa_Camb <- lsoa_Camb[cent_inter$col.id, ]
 summary(duplicated(lsoa_Camb$geo_code))
                             # to check if there are some lsoa with more than one zone
-lsoa_Camb1 <-再想想如何将表格当种带有不同空间信息，但具有相同编号的行合并
+lsoa_Camb_undup <- lsoa_Camb[!duplicated(lsoa_Camb$geo_code), ]
+lsoa_Camb_dup <-lsoa_Camb[duplicated(lsoa_Camb$geo_code), ]
 
-qtm(bound) + qtm(lsoa_Camb, fill = NULL)
-rm(bound_cut, lsoa_cent, cent_inter)
+for (i in 1:nrow(lsoa_Camb_dup)){
+  geo_code <- lsoa_Camb_dup$geo_code[i]
+  for (k in 1:nrow(lsoa_Camb_undup)){
+    if (lsoa_Camb_undup$geo_code[k] == lsoa_Camb_dup$geo_code[i]){
+      lsoa_Camb_undup$geom[k] <- st_union(lsoa_Camb_undup$geom[k], lsoa_Camb_dup$geom[i])
+      # qtm(lsoa_Camb_undup$geom[k])
+      }
+   }
+}
 
-st_write(lsoa_Camb, "Data/05_lsoa_Camb.gpkg", delete_dsn = TRUE)
+
+qtm(bound) + qtm(lsoa_Camb_undup, fill = NULL)
+rm(bound_cut, lsoa_cent, cent_inter, lsoa_Camb_dup, lsoa_Camb)
+
+st_write(lsoa_Camb_undup, "Data/05_lsoa_Camb.gpkg", delete_dsn = TRUE)
 
 
 #############################################
